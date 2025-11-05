@@ -7,6 +7,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use futures::stream::{FuturesUnordered, StreamExt};
+use log::info;
+use regex::Regex;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GetOrdersResponse {
@@ -331,9 +333,11 @@ pub async fn fetch_all_orders(
 
         tasks.push(tokio::spawn(async move {
             let permit = semaphore.acquire_owned().await?; // Acquire a permit
-            let item_url = item_name.to_case(Case::Snake);
+            let mut item_url = item_name.to_case(Case::Snake);
+            item_url = fix_relic_url_if_needed(item_url);
 
             // Fetch orders from the API
+            info!("Searching orders for item_url: {item_url}");
             let response = reqwest::get(BASE_URL.to_owned() + "/items/" + &item_url + "/orders")
                 .await?;
             let get_orders_response = response.json::<GetOrdersResponse>().await?;
@@ -459,4 +463,22 @@ pub fn generate_messages(orders: &[Order], desired_price: u32) -> Vec<String> {
         .iter()
         .map(|order| generate_message(order, desired_price))
         .collect()
+}
+
+// TODO: add comment with examples
+fn fix_relic_url_if_needed(mut snake: String) -> String {
+    // Only fix if it's a relic and has an underscore between letter and number (like g_14)
+    if snake.ends_with("_relic") {
+        // Fix common pattern like axi_g_14_relic → axi_g14_relic
+        let re = Regex::new(r"([a-z]+)_([a-z])_(\d+)_relic").unwrap();
+        if let Some(caps) = re.captures(&snake) {
+            return format!(
+                "{}_{}{}_relic",
+                &caps[1],
+                &caps[2],
+                &caps[3]
+            );
+        }
+    }
+    snake
 }
