@@ -299,11 +299,11 @@ impl eframe::App for MyApp {
                       let preset_data: Vec<(String, bool)> = self.settings_manager
                           .get_presets()
                           .iter()
-                          .map(|preset| {
+                          .map(|(preset_name, _settings)| {
                             let is_current = self.settings_manager
                                 .get_current_preset_name()
-                                .map_or(false, |c| c == preset.name);
-                            (preset.name.clone(), is_current)
+                                .map_or(false, |c| c == preset_name);
+                            (preset_name.clone(), is_current)
                           })
                           .collect();
 

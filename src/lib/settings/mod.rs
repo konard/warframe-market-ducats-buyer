@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use crate::lib;
 use crate::lib::storage::Storage;
 
@@ -57,17 +58,10 @@ impl Default for Settings {
     }
 }
 
-// TODO: save presets as hashmap instead of array
-#[derive(Clone, Serialize, Deserialize)]
-pub struct Preset {
-    pub(crate) name: String,
-    settings: Settings,
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SettingsManager {
     current_settings: Settings,
-    pub(crate) presets: Vec<Preset>,
+    pub(crate) presets: HashMap<String, Settings>,
     pub(crate) current_preset_name: Option<String>,
 
     #[serde(default)]
@@ -96,21 +90,14 @@ impl SettingsManager {
     }
 
     pub fn save_as_preset(&mut self, name: String) {
-        let preset = Preset {
-            name: name.clone(),
-            settings: self.current_settings.clone(),
-        };
-
-        // Remove existing preset with the same name if it exists
-        self.presets.retain(|p| p.name != name);
-        self.presets.push(preset);
+        self.presets.insert(name.clone(), self.current_settings.clone());
         self.current_preset_name = Some(name);
         self.save();
     }
 
     pub fn load_preset(&mut self, name: &str) -> bool {
-        if let Some(preset) = self.presets.iter().find(|p| p.name == name) {
-            self.current_settings = preset.settings.clone();
+        if let Some(settings) = self.presets.get(name) {
+            self.current_settings = settings.clone();
             self.current_preset_name = Some(name.to_string());
             true
         } else {
@@ -119,7 +106,7 @@ impl SettingsManager {
     }
 
     pub fn delete_preset(&mut self, name: &str) {
-        self.presets.retain(|p| p.name != name);
+        self.presets.remove(name);
         if self.current_preset_name.as_deref() == Some(name) {
             self.current_preset_name = None;
         }
@@ -144,7 +131,7 @@ impl SettingsManager {
         &mut self.current_settings
     }
 
-    pub fn get_presets(&self) -> &[Preset] {
+    pub fn get_presets(&self) -> &HashMap<String, Settings> {
         &self.presets
     }
 
@@ -156,8 +143,8 @@ impl SettingsManager {
     /// Returns true if updated, false if there was no current preset selected.
     pub fn update_current_preset(&mut self) -> bool {
         if let Some(ref name) = self.current_preset_name {
-            if let Some(preset) = self.presets.iter_mut().find(|p| &p.name == name) {
-                preset.settings = self.current_settings.clone();
+            if let Some(settings) = self.presets.get_mut(name) {
+                *settings = self.current_settings.clone();
                 self.save();
                 return true;
             }
@@ -213,7 +200,7 @@ impl Default for SettingsManager {
     fn default() -> Self {
         Self {
             current_settings: Settings::default(),
-            presets: Vec::new(),
+            presets: HashMap::new(),
             current_preset_name: None,
             ignored_user_nicknames: Vec::new(),
             contacted_order_ids: Vec::new(),
