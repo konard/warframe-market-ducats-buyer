@@ -379,14 +379,14 @@ pub async fn fetch_all_orders(
 }
 
 /// Processes the orders by filtering, enriching fields, sorting.
-pub fn process_orders(orders: Vec<Order>,  filter: impl Fn(&Order) -> bool) -> Vec<Order> {
+pub fn process_orders(orders: Vec<Order>,  filter: impl Fn(&Order) -> bool, offer_price: u32) -> Vec<Order> {
     let mut grouped_orders: HashMap<String, Vec<Order>> = HashMap::new();
 
     let filtered_orders: Vec<Order> = orders.into_iter().filter(|order| filter(order)).collect();
 
     for mut order in filtered_orders {
         order.is_with_group = Some(false);
-        order.price_to_offer = Some(cmp::min(PRICE_TO_OFFER, order.platinum));
+        order.price_to_offer = Some(cmp::min(offer_price, order.platinum));
         order.sum_to_offer = Some(order.price_to_offer.unwrap() * order.quantity);
         grouped_orders
             .entry(order.user.ingame_name.clone())
@@ -456,6 +456,14 @@ pub fn generate_message(order: &Order, desired_price: u32) -> String {
     }
 }
 
+
+/// Generates a message for a single order using the stored price_to_offer.
+/// This should be used when displaying messages for processed orders,
+/// to ensure the message reflects the offer price at the time of processing.
+pub fn generate_message_from_order(order: &Order) -> String {
+    let price_to_offer = order.price_to_offer.expect("Order must have price_to_offer set by process_orders");
+    generate_message(order, price_to_offer)
+}
 
 /// Generates messages for all processed orders.
 pub fn generate_messages(orders: &[Order], desired_price: u32) -> Vec<String> {

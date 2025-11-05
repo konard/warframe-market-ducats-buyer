@@ -208,6 +208,7 @@ impl eframe::App for MyApp {
                   self.settings_manager.contacted_order_ids().iter().cloned().collect();
               let ignored_nicknames = self.settings_manager.ignored_user_nicknames().iter().cloned().collect::<std::collections::HashSet<_>>();
 
+              let offer_price = offer_price;
               std::thread::spawn(move || {
                 let filter_orders = |order: &lib::Order| -> bool {
                   order.user.status == "ingame"
@@ -220,7 +221,7 @@ impl eframe::App for MyApp {
                 };
 
                 let processed_orders = orders
-                    .map(|o| lib::process_orders(o, filter_orders))
+                    .map(|o| lib::process_orders(o, filter_orders, offer_price))
                     .unwrap_or_else(Vec::new);
                 let _ = tx.send(Ok(processed_orders));
               });
@@ -247,8 +248,7 @@ impl eframe::App for MyApp {
                 Stroke::new(1.0, ui.visuals().extreme_bg_color)
               };
 
-              // TODO: messages regenerate every time so new offer_price is applied but it should not apply until we click filter & process ordeers button
-              let message = lib::generate_message(order, offer_price);
+              let message = lib::generate_message_from_order(order);
 
               Frame::none()
                   .stroke(frame_stroke)
